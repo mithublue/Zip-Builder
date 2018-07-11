@@ -17,12 +17,27 @@ if( isset( $_POST['build_zip'] ) ) {
 
 	$rootPath = realpath( $dir );
 
+	/**
+	 * exclude from gitignore
+	 */
+	$gitignore_excludes = file( $dir.'/.gitignore');
+
+	foreach ( $gitignore_excludes as $k => $exclusion ) {
+		$gitignore_excludes[$k] = trim( trim( $gitignore_excludes[$k] ), '/');
+		/**
+         * Except pro and pro-
+         */
+		if( in_array($gitignore_excludes[$k], array( 'pro','pro-') ) ) {
+		    unset( $gitignore_excludes[$k] );
+        }
+    }
+
 	foreach ( $processor_commands as $command => $command_data ) {
 
 		$zip = new ZipArchive();
 
 		$zipname  = isset( $command_data['slug'] ) ? $command_data['slug'] : str_replace( ' ', '-', strtolower( $command_data['name'] ) );
-		$zip->open(trim($dir,'/').'/processor/build/'.$zipname.'.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+		$zip->open($zipname.'.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
 		$zip->addEmptyDir($zipname);
 
@@ -32,6 +47,8 @@ if( isset( $_POST['build_zip'] ) ) {
 			new RecursiveDirectoryIterator($rootPath),
 			RecursiveIteratorIterator::LEAVES_ONLY
 		);
+
+		$command_data['exclude'] = array_merge( $command_data['exclude'], $gitignore_excludes );
 
 		if( isset( $command_data['exclude'] ) ) {
 			foreach ( $command_data['exclude'] as $k => $excluded_file ) {
@@ -55,8 +72,8 @@ if( isset( $_POST['build_zip'] ) ) {
 				$relativePath = substr($filePath, strlen($rootPath) + 1);
 
 				// Add current file to archive
-
-				$zip->addFile( $filePath, $zipname.'/'.$relativePath);
+				$zip->addFile( str_replace( '\\','/', $filePath ), str_replace( '\\', '/', $zipname.'/'.$relativePath ) );
+				//$zip->addFile( $filePath, $zipname.'/'.$relativePath);
 			}
 		}
 
@@ -65,7 +82,7 @@ if( isset( $_POST['build_zip'] ) ) {
 		$zip->close();
 
 
-		if ($zip->open(trim($dir,'/').'/processor/build/'.$zipname.'.zip') === TRUE) {
+		if ($zip->open($zipname.'.zip') === TRUE) {
 
 		    if( isset( $command_data['change'] ) ) {
 				foreach ( $command_data['change'] as $filename => $file_data ) {
